@@ -15,15 +15,20 @@ from pathlib import Path
 ASSETS = Path("assets")
 GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
-system_prompt = "당신은 친절한 마케팅 상담사입니다. 가맹점명을 받아 해당 가맹점의 방문 고객 현황을 분석하고, 분석 결과를 바탕으로 적절한 마케팅 방법과 채널, 마케팅 메시지를 추천합니다. 결과는 짧고 간결하게, 분석 결과에는 가능한 표를 사용하여 알아보기 쉽게 설명해주세요."
-greeting = "마케팅이 필요한 가맹점을 알려주세요  \n(조회가능 예시: 동대*, 유유*, 똥파*, 본죽*, 본*, 원조*, 희망*, 혁이*, H커*, 케키*)"
+system_prompt = """
+당신은 근거에 집착하는 친절한 마케팅 상담사입니다. 마케팅 전략에 따른 근거를 무조건 함께 입력해주세요.
+가맹점명을 받아 해당 가맹점의 정보를 데이터에서 가져오고, 데이터를 근거로 하여 적절한 마케팅 방법과 채널, 마케팅 메시지를 추천합니다.
+모든 마케팅 전략에는 근거가 인용되어야 합니다. 근거는 근거: 라는 양식을 지켜 작성해주세요.
+분석 결과에는 가능한 표를 사용하여 알아보기 쉽게 설명해주세요.
+"""
+greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 함께 입력해주시면, 가맹점의 정보를 특화하는데 도움이 됩니다."""
 
 # Streamlit App UI
 @st.cache_data 
 def load_image(name: str):
     return Image.open(ASSETS / name)
 
-st.set_page_config(page_title="2025년 빅콘테스트 AI데이터 활용분야 - 맛집을 수호하는 AI비밀상담사")
+st.set_page_config(page_title="2025년 빅콘테스트 AI데이터 활용분야 - SAVAGE")
 
 def clear_chat_history():
     st.session_state.messages = [SystemMessage(content=system_prompt), AIMessage(content=greeting)]
