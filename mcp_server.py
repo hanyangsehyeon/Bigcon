@@ -26,7 +26,7 @@ mcp = FastMCP(
 # 데이터 로드 함수
 def _load_df():
     global DF
-    DF = pd.read_csv("./data/mct_sample.csv")
+    DF = pd.read_csv("./data/unique_df.csv")
     return DF
 
 # 서버 시작 시 데이터 로드
