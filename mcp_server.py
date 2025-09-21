@@ -53,7 +53,7 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
         merchant_name = merchant_name[:2] + "*" * (len(merchant_name) - 2)
     
     # 가맹점명으로 검색 (exact match)
-    result = DF[DF['가맹점명'].astype(str).str.replace('*', '') == merchant_name.replace('*', '')]
+    result = DF[DF['가맹점명'].astype(str) == merchant_name]
     
     if len(result) == 0:
         return {
