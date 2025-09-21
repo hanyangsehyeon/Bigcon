@@ -44,6 +44,13 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
       - 가맹점 정보가 담긴 딕셔너리
     """
     assert DF is not None, "DataFrame이 초기화되지 않았습니다."
+
+    # 가맹점명 마스킹처리
+
+    if len(merchant_name) == 2:
+        merchant_name = merchant_name[0] + "*"
+    elif len(merchant_name) > 2:
+        merchant_name = merchant_name[:2] + "*" * (len(merchant_name) - 2)
     
     # 가맹점명으로 검색 (exact match)
     result = DF[DF['가맹점명'].astype(str).str.replace('*', '') == merchant_name.replace('*', '')]
