@@ -1,5 +1,6 @@
 import streamlit as st
 import asyncio
+import json
 
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
@@ -16,10 +17,31 @@ ASSETS = Path("assets")
 GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
 system_prompt = """
-당신은 근거에 집착하는 친절한 마케팅 상담사입니다. 마케팅 전략에 따른 근거를 무조건 함께 입력해주세요.
-가맹점명을 받아 해당 가맹점의 정보를 데이터에서 가져오고, 데이터를 근거로 하여 적절한 마케팅 방법과 채널, 마케팅 메시지를 추천합니다.
-모든 마케팅 전략에는 근거가 인용되어야 합니다. 근거는 근거: 라는 양식을 지켜 작성해주세요.
-분석 결과에는 가능한 표를 사용하여 알아보기 쉽게 설명해주세요.
+당신은 데이터를 기반으로 마케팅 전략을 제안하는 전문 컨설턴트입니다.
+당신의 답변은 반드시 JSON 형식이어야 합니다. 다른 설명 없이 JSON 코드만 출력해야 합니다.
+
+JSON 구조는 다음과 같은 객체들의 리스트(배열) 형태여야 합니다:
+[
+  {
+    "section": "마케팅 전략의 주제나 단계",
+    "content": "해당 주제에 대한 구체적인 마케팅 제안 내용. 만약 내용에 마크다운 테이블과 같이 여러 줄이 포함된다면, 반드시 개행 문자를 '\\n'으로 이스케이프 처리해야 합니다.",
+    "basis": "해당 제안을 뒷받침하는 데이터 기반의 근거"
+  }
+]
+
+## 예시 ##
+다음은 content에 마크다운 테이블이 포함된 경우의 올바른 JSON 형식입니다:
+[
+  {
+    "section": "주요 고객 분석",
+    "content": "아래는 주요 고객층의 연령 및 성별 분포입니다.\\n\\n| 연령대 | 남성 | 여성 |\\n|---|---|---|\\n| 20대 | 15% | 25% |\\n| 30대 | 30% | 20% |\\n| 40대 | 5% | 5% |",
+    "basis": "가맹점의 최근 3개월 결제 데이터를 분석한 결과입니다."
+  }
+]
+
+사용자가 가맹점명을 입력하면, 당신은 제공된 데이터를 분석하여 위 JSON 형식에 맞춰 체계적인 마케팅 전략을 제안해야 합니다.
+모든 제안(content)에는 반드시 데이터에 기반한 근거(basis)가 함께 제시되어야 합니다.
+분석 결과는 가능한 표(마크다운 형식)를 사용하여 'content'에 포함시키면 가독성을 높일 수 있습니다.
 """
 greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 함께 입력해주시면, 가맹점의 정보를 특화하는데 도움이 됩니다."""
 
@@ -118,7 +140,29 @@ if query := st.chat_input("가맹점 이름을 입력하세요"):
             # 사용자 입력 처리
             reply = asyncio.run(process_user_input())
             st.session_state.messages.append(AIMessage(content=reply))
-            render_chat_message("assistant", reply)
+            with st.chat_message("assistant"):
+                try:
+                    # JSON 파싱
+                    response_data = json.loads(reply)
+                    
+                    # 각 섹션을 순회하며 UI에 렌더링
+                    for item in response_data:
+                        section = item.get("section", "결과")
+                        content = item.get("content", "")
+                        basis = item.get("basis", "")
+
+                        st.subheader(f"✅ {section}")
+                        st.markdown(content)
+                        
+                        if basis:
+                            with st.expander("💡 데이터 기반 근거 보기"):
+                                st.info(basis)
+                        st.divider()
+
+                except json.JSONDecodeError:
+                    # LLM이 유효한 JSON을 생성하지 못한 경우, 원본 텍스트를 그대로 보여줌
+                    st.error("결과를 분석하는 데 문제가 발생했습니다. 원본 메시지를 확인해주세요.")
+                    st.markdown(reply)
         except* Exception as eg:
             # 오류 처리
             for i, exc in enumerate(eg.exceptions, 1):
