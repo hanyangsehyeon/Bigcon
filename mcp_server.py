@@ -64,15 +64,15 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
         }
     
     # 기본 정보 (가맹점명, id, 주소)
-    base_merchants = result[['가맹점명', 'id', '주소']].to_dict(orient='records')
+    base_merchants = result[['가맹점명', '가맹점ID', '주소']].to_dict(orient='records')
 
     # 상세정보 붙이기: 각 id마다 전체 칼럼 조회
     detailed_merchants = []
     for m in base_merchants:
-        detail = DF[DF['id'].astype(str) == str(m['id'])].iloc[0].to_dict()
+        detail = DF[DF['가맹점ID'].astype(str) == str(m['가맹점ID'])].iloc[0].to_dict()
         detailed_merchants.append({
             "가맹점명": m['가맹점명'],
-            "id": m['id'],
+            "가맹점ID": m['가맹점ID'],
             "주소": m['주소'],
             "detail": detail   # 전체 칼럼 딕셔너리
         })
