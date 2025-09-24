@@ -63,14 +63,25 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
             "merchants": []
         }
     
-    # 결과를 딕셔너리로 변환
-    merchants = result.to_dict(orient='records')
+    # 기본 정보 (가맹점명, id, 주소)
+    base_merchants = result[['가맹점명', 'id', '주소']].to_dict(orient='records')
+
+    # 상세정보 붙이기: 각 id마다 전체 칼럼 조회
+    detailed_merchants = []
+    for m in base_merchants:
+        detail = DF[DF['id'].astype(str) == str(m['id'])].iloc[0].to_dict()
+        detailed_merchants.append({
+            "가맹점명": m['가맹점명'],
+            "id": m['id'],
+            "주소": m['주소'],
+            "detail": detail   # 전체 칼럼 딕셔너리
+        })
 
     return {
         "found": True,
-        "message": f"'{merchant_name}'에 해당하는 가맹점 {len(merchants)}개를 찾았습니다.",
-        "count": len(merchants),
-        "merchants": merchants
+        "message": f"'{merchant_name}'에 해당하는 가맹점 {len(base_merchants)}개를 찾았습니다.",
+        "count": len(base_merchants),
+        "merchants": detailed_merchants
     }
 
 if __name__ == "__main__":
