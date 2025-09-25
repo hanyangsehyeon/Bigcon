@@ -1,7 +1,19 @@
 import pandas as pd
+import logging
 from pathlib import Path
 from fastmcp.server import FastMCP, Context
 from typing import List, Dict, Any, Optional
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('merchant_search.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # 전역 데이터 저장
 DF: Optional[pd.DataFrame] = None
@@ -43,19 +55,24 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
     반환값:
       - 가맹점 정보가 담긴 딕셔너리
     """
+    logger.info(f"search_merchant 함수 실행 시작 - 입력된 가맹점명: '{merchant_name}'")
+    
     assert DF is not None, "DataFrame이 초기화되지 않았습니다."
 
     # 가맹점명 마스킹처리
-
+    original_name = merchant_name
     if len(merchant_name) == 2:
         merchant_name = merchant_name[0] + "*"
     elif len(merchant_name) > 2:
         merchant_name = merchant_name[:2] + "*" * (len(merchant_name) - 2)
     
+    logger.info(f"가맹점명 마스킹 처리 완료 - 원본: '{original_name}' -> 마스킹된 이름: '{merchant_name}'")
+    
     # 가맹점명으로 검색 (exact match)
     result = DF[DF['가맹점명'].astype(str) == merchant_name]
     
     if len(result) == 0:
+        logger.warning(f"검색 결과 없음 - 가맹점명: '{merchant_name}'")
         return {
             "found": False,
             "message": f"'{merchant_name}'에 해당하는 가맹점을 찾을 수 없습니다.",
@@ -65,6 +82,7 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
     
     # 기본 정보 (가맹점명, id, 주소)
     base_merchants = result[['가맹점명', '가맹점ID', '주소']].to_dict(orient='records')
+    logger.info(f"검색 성공 - 가맹점명: '{merchant_name}', 찾은 가맹점 수: {len(base_merchants)}")
 
     # 상세정보 붙이기: 각 id마다 전체 칼럼 조회
     detailed_merchants = []
@@ -77,12 +95,15 @@ def search_merchant(merchant_name: str) -> Dict[str, Any]:
             "detail": detail   # 전체 칼럼 딕셔너리
         })
 
-    return {
+    result_data = {
         "found": True,
         "message": f"'{merchant_name}'에 해당하는 가맹점 {len(base_merchants)}개를 찾았습니다.",
         "count": len(base_merchants),
         "merchants": detailed_merchants
     }
+    
+    logger.info(f"search_merchant 함수 실행 완료 - 반환 데이터: found={result_data['found']}, count={result_data['count']}")
+    return result_data
 
 if __name__ == "__main__":
     mcp.run()
