@@ -24,7 +24,7 @@ JSON 구조는 다음과 같은 객체들의 리스트(배열) 형태여야 합�
 [
   {
     "section": "마케팅 전략의 주제나 단계",
-    "content": "해당 주제에 대한 구체적인 마케팅 제안 내용. 만약 내용에 마크다운 테이블과 같이 여러 줄이 포함된다면, 반드시 개행 문자를 '\\n'으로 이스케이프 처리해야 합니다.",
+    "content": "해당 주제에 대한 구체적인 마케팅 제안 내용. 만약 내용에 마크다운 테이블과 같이 여러 줄이 포함된다면, 반드시 줄바꿈을 '\\n' 으로 이스케이프 처리해야 합니다.",
     "basis": "해당 제안을 뒷받침하는 데이터 기반의 근거"
   }
 ]
@@ -39,9 +39,11 @@ JSON 구조는 다음과 같은 객체들의 리스트(배열) 형태여야 합�
   }
 ]
 
-사용자가 가맹점명을 입력하면, 당신은 제공된 데이터를 분석하여 위 JSON 형식에 맞춰 체계적인 마케팅 전략을 제안해야 합니다.
-모든 제안(content)에는 반드시 데이터에 기반한 근거(basis)가 함께 제시되어야 합니다.
-분석 결과는 가능한 표(마크다운 형식)를 사용하여 'content'에 포함시키면 가독성을 높일 수 있습니다.
+규칙:
+1. 모든 줄바꿈은 반드시 문자열 내부에서 '\\n' 으로 이스케이프 처리한다.
+2. 출력 텍스트 끝에는 역슬래시(\\) 같은 불필요한 문자를 절대 넣지 않는다.
+3. JSON 이외의 설명, 코드블록, 주석은 출력하지 않는다.
+4. 모든 제안(content)에는 반드시 데이터에 기반한 근거(basis)가 함께 제시되어야 한다.
 """
 greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 함께 입력해주시면, 가맹점의 정보를 특화하는데 도움이 됩니다."""
 
@@ -65,11 +67,12 @@ with st.sidebar:
     with col2:
         st.button('Clear Chat History', on_click=clear_chat_history)
 
-# 헤더
-st.title("신한카드 소상공인 🔑 비밀상담소")
-st.subheader("#우리동네 #숨은맛집 #소상공인 #마케팅 #전략 .. 🤤")
-st.image(load_image("image_gen3.png"), width='stretch', caption="🌀 머리아픈 마케팅 📊 어떻게 하면 좋을까?")
-st.write("")
+# 헤더 컨테이너
+header_container = st.container()
+with header_container:
+    st.title("신한카드 소상공인 🔑 비밀상담소")
+    st.subheader("#우리동네 #숨은맛집 #소상공인 #마케팅 #전략 .. 🤤")
+    st.write("")
 
 # 메시지 상태 초기화
 if "messages" not in st.session_state:
@@ -78,14 +81,45 @@ if "messages" not in st.session_state:
         AIMessage(content=greeting)
     ]
 
-# 초기 메시지 화면 표시
-for message in st.session_state.messages:
-    if isinstance(message, HumanMessage):
-        with st.chat_message("user"):
-            st.write(message.content)
-    elif isinstance(message, AIMessage):
-        with st.chat_message("assistant"):
-            st.write(message.content)
+chat_container = st.container()
+
+def render_messages():
+    """모든 메시지를 렌더링하는 함수"""
+    with chat_container:
+        for i, message in enumerate(st.session_state.messages):
+            if isinstance(message, SystemMessage):
+                continue
+            elif isinstance(message, HumanMessage):
+                with st.chat_message("user"):
+                    st.write(message.content)
+            elif isinstance(message, AIMessage):
+                with st.chat_message("assistant"):
+                    try:
+                        # JSON 파싱 시도
+                        response_data = json.loads(message.content)
+                        
+                        if isinstance(response_data, dict):
+                            response_data = [response_data]
+                        
+                        # 각 섹션을 순회하며 UI에 렌더링
+                        for item in response_data:
+                            section = item.get("section", "결과")
+                            content = item.get("content", "")
+                            basis = item.get("basis", "")
+
+                            st.subheader(f"✅ {section}")
+                            st.markdown(content)
+                            
+                            if basis:
+                                with st.expander("💡 데이터 기반 근거 보기"):
+                                    st.info(basis)
+                            st.divider()
+
+                    except json.JSONDecodeError:
+                        st.write(message.content)
+
+# 초기 메시지 렌더링
+render_messages()
 
 def render_chat_message(role: str, content: str):
     with st.chat_message(role):
@@ -129,43 +163,29 @@ async def process_user_input():
             return ai_message.content
             
 
-# 사용자 입력 창
-if query := st.chat_input("가맹점 이름을 입력하세요"):
-    # 사용자 메시지 추가
-    st.session_state.messages.append(HumanMessage(content=query))
-    render_chat_message("user", query)
+input_container = st.container()
+with input_container:
+    if query := st.chat_input("가맹점 이름을 입력하세요"):
+        # 사용자 메시지 추가
+        st.session_state.messages.append(HumanMessage(content=query))
+        st.rerun() # 페이지 새로고침하여 새로운 메시지를 표시
 
-    with st.spinner("Thinking..."):
-        try:
-            # 사용자 입력 처리
-            reply = asyncio.run(process_user_input())
-            st.session_state.messages.append(AIMessage(content=reply))
-            with st.chat_message("assistant"):
-                try:
-                    # JSON 파싱
-                    response_data = json.loads(reply)
-                    
-                    # 각 섹션을 순회하며 UI에 렌더링
-                    for item in response_data:
-                        section = item.get("section", "결과")
-                        content = item.get("content", "")
-                        basis = item.get("basis", "")
+# 사용자 입력이 있을 때는 채팅 히스토리에 추가하여 UI 유지
+if len(st.session_state.messages) > 2:  
+    last_message = st.session_state.messages[-1]
+    if isinstance(last_message, HumanMessage):
+        with st.spinner("Thinking..."):
+            try:
+                reply = asyncio.run(process_user_input())
+                st.session_state.messages.append(AIMessage(content=reply))
+                # 메시지 추가 후 다시 렌더링
+                render_messages()
+                st.rerun()  # 새로운 응답을 표시하기 위해 페이지 새로고침
+                
+            except* Exception as eg:
+                for i, exc in enumerate(eg.exceptions, 1):
+                    error_msg = f"오류가 발생했습니다 #{i}: {exc!r}"
+                    st.session_state.messages.append(AIMessage(content=error_msg))
+                render_messages()
+                st.rerun()
 
-                        st.subheader(f"✅ {section}")
-                        st.markdown(content)
-                        
-                        if basis:
-                            with st.expander("💡 데이터 기반 근거 보기"):
-                                st.info(basis)
-                        st.divider()
-
-                except json.JSONDecodeError:
-                    # LLM이 유효한 JSON을 생성하지 못한 경우, 원본 텍스트를 그대로 보여줌
-                    st.error("결과를 분석하는 데 문제가 발생했습니다. 원본 메시지를 확인해주세요.")
-                    st.markdown(reply)
-        except* Exception as eg:
-            # 오류 처리
-            for i, exc in enumerate(eg.exceptions, 1):
-                error_msg = f"오류가 발생했습니다 #{i}: {exc!r}"
-                st.session_state.messages.append(AIMessage(content=error_msg))
-                render_chat_message("assistant", error_msg)
