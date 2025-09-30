@@ -1,6 +1,10 @@
 import streamlit as st
 import asyncio
 import json
+import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
+import re
 
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
@@ -32,7 +36,7 @@ JSON 구조:
   {
     "section": "가맹점 정보 분석",
     "content": "해당 가맹점의 주요 정보와 고객 특성을 간단히 요약하여 제시합니다.",
-    "basis": "검색된 가맹점의 지정된 컬럼과 값을 세로형 테이블로 표시합니다. 각 항목을 행으로 나누어 표시하여 가독성을 높입니다.\\n\\n| 항목 | 값 |\\n|---|---|\\n| 가맹점명 | [값] |\\n| 주소 | [값] |\\n| 업종 | [값] |\\n| 상권 | [값] |\\n| 개설일 | [값] |\\n| 가맹점 운영개월수 구간 | [값] |\\n| 매출금액 구간 | [값] |\\n| 매출건수 구간 | [값] |\\n| 유니크 고객 수 구간 | [값] |\\n| 객단가 구간 | [값] |\\n| 취소율 구간 | [값] |\\n| 배달매출 비율 | [값] |\\n| 동일 업종 대비 매출금액 비율 | [값] |\\n| 동일 업종 대비 매출건수 비율 | [값] |\\n| 동일 업종 내 매출 순위 비율 | [값] |\\n| 동일 상권 내 매출 순위 비율 | [값] |\\n| 동일 업종 내 해지 가맹점 비중 | [값] |\\n| 동일 상권 내 해지 가맹점 비중 | [값] |\\n\\n고객 이용 비율은 거주 이용 고객 비율과 직장 이용 고객 비율, 유동인구 이용 고객 비율을 원 그래프로 표시합니다."
+    "basis": "검색된 가맹점의 지정된 컬럼과 값을 세로형 테이블로 표시합니다. 각 항목을 행으로 나누어 표시하여 가독성을 높입니다.\\n\\n| 항목 | 값 |\\n|---|---|\\n| 가맹점명 | [값] |\\n| 주소 | [값] |\\n| 업종 | [값] |\\n| 상권 | [값] |\\n| 개설일 | [값] |\\n| 가맹점 운영개월수 구간 | [값] |\\n| 매출금액 구간 | [값] |\\n| 매출건수 구간 | [값] |\\n| 유니크 고객 수 구간 | [값] |\\n| 객단가 구간 | [값] |\\n| 취소율 구간 | [값] |\\n| 배달매출 비율 | [값] |\\n| 동일 업종 대비 매출금액 비율 | [값] |\\n| 동일 업종 대비 매출건수 비율 | [값] |\\n| 동일 업종 내 매출 순위 비율 | [값] |\\n| 동일 상권 내 매출 순위 비율 | [값] |\\n| 동일 업종 내 해지 가맹점 비중 | [값] |\\n| 동일 상권 내 해지 가맹점 비중 | [값] |\\n\\n**고객 이용 비율**: 거주 이용 고객 비율, 직장 이용 고객 비율, 유동인구 이용 고객 비율의 실제 수치를 제공하여 원그래프로 시각화할 수 있도록 합니다. 예: 거주 40%, 직장 35%, 유동인구 25%"
   },
   {
     "section": "1. [데이터 기반 전략명]",
@@ -82,6 +86,38 @@ greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 �
 @st.cache_data 
 def load_image(name: str):
     return Image.open(ASSETS / name)
+
+def create_pie_chart(residence_ratio: float, workplace_ratio: float, floating_ratio: float):
+    """고객 이용 비율 원그래프 생성"""
+    # 데이터 준비
+    labels = ['거주 이용 고객', '직장 이용 고객', '유동인구 이용 고객']
+    values = [residence_ratio, workplace_ratio, floating_ratio]
+    colors = ['#ff9999', '#66b3ff', '#99ff99']
+    
+    # Plotly 파이 차트 생성
+    fig = go.Figure(data=[go.Pie(
+        labels=labels, 
+        values=values,
+        hole=0.3,  # 도넛 차트 스타일
+        marker_colors=colors,
+        textinfo='label+percent',
+        textfont_size=12,
+        showlegend=True
+    )])
+    
+    fig.update_layout(
+        title={
+            'text': '고객 이용 비율',
+            'x': 0.5,
+            'font': {'size': 16}
+        },
+        font=dict(family="Arial", size=12),
+        width=400,
+        height=400,
+        margin=dict(t=50, b=50, l=50, r=50)
+    )
+    
+    return fig
 
 st.set_page_config(page_title="2025년 빅콘테스트 AI데이터 활용분야 - SAVAGE")
 
@@ -174,10 +210,29 @@ def render_messages():
                                 
                                 if basis:
                                     with st.expander("💡 데이터 기반 근거 보기"):
-                                        # if(section == "가맹점 정보 분석"):
-                                        #     st.info("바꿔치기")
-                                        # else: st.info(basis)
-                                        st.info(basis)
+                                        if section == "가맹점 정보 분석":
+                                            st.info(basis)
+                                            
+                                            # 고객 이용 비율 원그래프 표시 - 실제 데이터 파싱
+                                            try:
+                                                residence_match = re.search(r'거주.*?(\d+\.?\d*)%', basis)
+                                                workplace_match = re.search(r'직장.*?(\d+\.?\d*)%', basis)  
+                                                floating_match = re.search(r'유동인구.*?(\d+\.?\d*)%', basis)
+                                                
+                                                if residence_match and workplace_match and floating_match:
+                                                    residence_ratio = float(residence_match.group(1))
+                                                    workplace_ratio = float(workplace_match.group(1))
+                                                    floating_ratio = float(floating_match.group(1))
+                                                    
+                                                    fig = create_pie_chart(residence_ratio, workplace_ratio, floating_ratio)
+                                                    st.plotly_chart(fig, use_container_width=True)
+                                                else:
+                                                    st.info("고객 이용 비율 데이터를 찾을 수 없어 원그래프를 표시할 수 없습니다.")
+                                                    
+                                            except Exception as e:
+                                                st.warning(f"원그래프 생성 중 오류: {e}")
+                                        else:
+                                            st.info(basis)
                                         
                                 st.divider()
 

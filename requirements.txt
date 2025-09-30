@@ -17,5 +17,9 @@ langgraph>=0.1.0
 # 이미지 처리
 Pillow>=10.0.0
 
+# 차트 및 시각화
+plotly>=5.0.0
+matplotlib>=3.5.0
+
 # 기타
 asyncio
