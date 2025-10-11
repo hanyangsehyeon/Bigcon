@@ -1,6 +1,10 @@
 import streamlit as st
 import asyncio
 import json
+import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
+import re
 
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession, StdioServerParameters
@@ -32,7 +36,7 @@ JSON 구조:
   {
     "section": "가맹점 정보 분석",
     "content": "해당 가맹점의 주요 정보와 고객 특성을 간단히 요약하여 제시합니다.",
-    "basis": "검색된 가맹점의 모든 데이터 컬럼과 값을 상세히 나열합니다. 예: 주소, 업종, 개설일자, 이용건수구간, 이용금액구간, 현지인이용비중, 영업시간 등 모든 데이터를 명시합니다."
+    "basis": "검색된 가맹점의 지정된 컬럼과 값을 세로형 테이블로 표시합니다. 각 항목을 행으로 나누어 표시하여 가독성을 높입니다.\\n\\n**중요: 테이블에는 연령대별 성별 고객 비중 데이터(남성/여성 20대이하, 30대, 40대, 50대, 60대이상)를 포함하지 마세요. 이 데이터는 차트로만 시각화됩니다.**\\n\\n| 항목 | 값 |\\n|---|---|\\n| 가맹점명 | [값] |\\n| 주소 | [값] |\\n| 업종 | [값] |\\n| 상권 | [값] |\\n| 개설일 | [값] |\\n| 가맹점 운영개월수 구간 | [값] |\\n| 매출금액 구간 | [값] |\\n| 매출건수 구간 | [값] |\\n| 유니크 고객 수 구간 | [값] |\\n| 객단가 구간 | [값] |\\n| 취소율 구간 | [값] |\\n| 배달매출 비율 | [값] |\\n| 동일 업종 대비 매출금액 비율 | [값] |\\n| 동일 업종 대비 매출건수 비율 | [값] |\\n| 동일 업종 내 매출 순위 비율 | [값] |\\n| 동일 상권 내 매출 순위 비율 | [값] |\\n| 동일 업종 내 해지 가맹점 비중 | [값] |\\n| 동일 상권 내 해지 가맹점 비중 | [값] |\\n\\n거주 이용 고객 비율, 직장 이용 고객 비율, 유동인구 이용 고객 비율의 실제 수치를 제공합니다. 예: 거주 40.5%, 직장 11.7%, 유동인구 47.8%. 연령대별 성별 분포 데이터도 함께 포함하되, 이는 테이블에 표시하지 않고 차트 시각화용으로만 사용합니다."
   },
   {
     "section": "1. [데이터 기반 전략명]",
@@ -82,6 +86,109 @@ greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 �
 @st.cache_data 
 def load_image(name: str):
     return Image.open(ASSETS / name)
+
+def create_pie_chart(residence_ratio: float, workplace_ratio: float, floating_ratio: float):
+    """고객 이용 비율 원그래프 생성"""
+    # 데이터 준비
+    labels = ['거주 이용 고객', '직장 이용 고객', '유동인구 이용 고객']
+    values = [residence_ratio, workplace_ratio, floating_ratio]
+    colors = ['#ff9999', '#66b3ff', '#99ff99']
+    
+    # Plotly 파이 차트 생성
+    fig = go.Figure(data=[go.Pie(
+        labels=labels, 
+        values=values,
+        hole=0.3,  # 도넛 차트 스타일
+        marker_colors=colors,
+        textinfo='label+percent',
+        textfont_size=12,
+        showlegend=True
+    )])
+    
+    fig.update_layout(
+        title={
+            'text': '고객 이용 비율',
+            'x': 0.4,
+            'font': {'size': 16}
+        },
+        font=dict(family="Arial", size=12),
+        width=400,
+        height=400,
+        margin=dict(t=50, b=50, l=50, r=50)
+    )
+    
+    return fig
+
+def create_population_pyramid(age_gender_data):
+    age_groups = list(age_gender_data.keys())
+    male_values = [age_gender_data[age].get('남성', 0) for age in age_groups]
+    female_values = [age_gender_data[age].get('여성', 0) for age in age_groups]
+    
+    # 남성 데이터는 음수로 변환 (왼쪽에 표시하기 위해)
+    male_values_negative = [-val for val in male_values]
+    
+    fig = go.Figure()
+    
+    # 남성 데이터 (왼쪽, 파란색)
+    fig.add_trace(go.Bar(
+        y=age_groups,
+        x=male_values_negative,
+        name='남성',
+        orientation='h',
+        marker_color='#4472C4',
+        text=[f'{val}%' for val in male_values],
+        textposition='inside',
+        textfont=dict(color='white', size=10)
+    ))
+    
+    # 여성 데이터 (오른쪽, 주황색)
+    fig.add_trace(go.Bar(
+        y=age_groups,
+        x=female_values,
+        name='여성',
+        orientation='h',
+        marker_color='#E46C0A',
+        text=[f'{val}%' for val in female_values],
+        textposition='inside',
+        textfont=dict(color='white', size=10)
+    ))
+    
+    # 최대값 계산 (x축 범위 설정용)
+    max_val = max(max(male_values), max(female_values))
+    
+    fig.update_layout(
+        title={
+            'text': '연령대별 고객 분포',
+            'x': 0.4,
+            'font': {'size': 16}
+        },
+        xaxis=dict(
+            title='비율 (%)',
+            range=[-max_val*1.2, max_val*1.2],
+            tickvals=list(range(-int(max_val), int(max_val)+1, 5)),
+            ticktext=[str(abs(x)) + '%' for x in range(-int(max_val), int(max_val)+1, 5)]
+        ),
+        yaxis=dict(
+            title='연령대',
+            categoryorder='array',
+            categoryarray=age_groups[::-1]  # 위부터 높은 연령대가 오도록
+        ),
+        barmode='overlay',
+        bargap=0.1,
+        height=500,
+        width=600,
+        margin=dict(t=80, b=50, l=80, r=50),
+        font=dict(family="Arial", size=12),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        )
+    )
+    
+    return fig
 
 st.set_page_config(page_title="2025년 빅콘테스트 AI데이터 활용분야 - SAVAGE")
 
@@ -174,7 +281,102 @@ def render_messages():
                                 
                                 if basis:
                                     with st.expander("💡 데이터 기반 근거 보기"):
-                                        st.info(basis)
+                                        if section == "가맹점 정보 분석":
+                                            st.info(basis)
+                                            
+                                            # 고객 이용 비율 원그래프 표시 - 실제 데이터 파싱
+                                            try:
+                                                residence_match = re.search(r'거주.*?(\d+\.?\d*)%', basis)
+                                                workplace_match = re.search(r'직장.*?(\d+\.?\d*)%', basis)  
+                                                floating_match = re.search(r'유동인구.*?(\d+\.?\d*)%', basis)
+                                                
+                                                if residence_match and workplace_match and floating_match:
+                                                    residence_ratio = float(residence_match.group(1))
+                                                    workplace_ratio = float(workplace_match.group(1))
+                                                    floating_ratio = float(floating_match.group(1))
+                                                    
+                                                    fig = create_pie_chart(residence_ratio, workplace_ratio, floating_ratio)
+                                                    st.plotly_chart(fig, use_container_width=True)
+                                                else:
+                                                    st.info("고객 이용 비율 데이터를 찾을 수 없어 원그래프를 표시할 수 없습니다.")
+                                                    
+                                            except Exception as e:
+                                                st.warning(f"원그래프 생성 중 오류: {e}")
+                                            
+                                            try:
+                                                age_gender_data = {}
+                                                
+                                                male_20_match = re.search(r'남성 20대 이하.*?(\d+\.?\d*)%', basis)
+                                                male_30_match = re.search(r'남성 30대.*?(\d+\.?\d*)%', basis)
+                                                male_40_match = re.search(r'남성 40대.*?(\d+\.?\d*)%', basis)
+                                                male_50_match = re.search(r'남성 50대.*?(\d+\.?\d*)%', basis)
+                                                male_60_match = re.search(r'남성 60대 이상.*?(\d+\.?\d*)%', basis)
+                                                
+                                                female_20_match = re.search(r'여성 20대 이하.*?(\d+\.?\d*)%', basis)
+                                                female_30_match = re.search(r'여성 30대.*?(\d+\.?\d*)%', basis)
+                                                female_40_match = re.search(r'여성 40대.*?(\d+\.?\d*)%', basis)
+                                                female_50_match = re.search(r'여성 50대.*?(\d+\.?\d*)%', basis)
+                                                female_60_match = re.search(r'여성 60대 이상.*?(\d+\.?\d*)%', basis)
+                                                
+                                                if male_20_match and female_20_match:
+                                                    age_gender_data['20대 이하'] = {
+                                                        '남성': float(male_20_match.group(1)),
+                                                        '여성': float(female_20_match.group(1))
+                                                    }
+                                                if male_30_match and female_30_match:
+                                                    age_gender_data['30대'] = {
+                                                        '남성': float(male_30_match.group(1)),
+                                                        '여성': float(female_30_match.group(1))
+                                                    }
+                                                if male_40_match and female_40_match:
+                                                    age_gender_data['40대'] = {
+                                                        '남성': float(male_40_match.group(1)),
+                                                        '여성': float(female_40_match.group(1))
+                                                    }
+                                                if male_50_match and female_50_match:
+                                                    age_gender_data['50대'] = {
+                                                        '남성': float(male_50_match.group(1)),
+                                                        '여성': float(female_50_match.group(1))
+                                                    }
+                                                if male_60_match and female_60_match:
+                                                    age_gender_data['60대 이상'] = {
+                                                        '남성': float(male_60_match.group(1)),
+                                                        '여성': float(female_60_match.group(1))
+                                                    }
+                                                
+                                                # 테이블 형태에서도 데이터 추출 시도 (기존 로직 유지)
+                                                if not age_gender_data:
+                                                    table_lines = basis.split('\\n')
+                                                    header_found = False
+                                                    
+                                                    for line in table_lines:
+                                                        if '연령대' in line and ('남성' in line or '여성' in line):
+                                                            header_found = True
+                                                            continue
+                                                        if header_found and '|' in line:
+                                                            parts = [part.strip() for part in line.split('|') if part.strip()]
+                                                            if len(parts) >= 3:
+                                                                age_group = parts[0]
+                                                                male_val = re.search(r'(\d+\.?\d*)%?', parts[1])
+                                                                female_val = re.search(r'(\d+\.?\d*)%?', parts[2])
+                                                                
+                                                                if male_val and female_val:
+                                                                    age_gender_data[age_group] = {
+                                                                        '남성': float(male_val.group(1)),
+                                                                        '여성': float(female_val.group(1))
+                                                                    }
+                                                
+                                                if age_gender_data:
+                                                    pyramid_fig = create_population_pyramid(age_gender_data)
+                                                    st.plotly_chart(pyramid_fig, use_container_width=True)
+                                                else:
+                                                    st.info("연령대별 성별 데이터를 찾을 수 없어 인구 피라미드를 표시할 수 없습니다.")
+                                                    
+                                            except Exception as e:
+                                                st.warning(f"인구 피라미드 생성 중 오류: {e}")
+                                        else:
+                                            st.info(basis)
+                                        
                                 st.divider()
 
                         except (json.JSONDecodeError, ValueError):
