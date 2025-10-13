@@ -21,12 +21,16 @@ ASSETS = Path("assets")
 GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
 system_prompt = """
-당신은 데이터를 기반으로 마케팅 전략을 제안하는 전문 컨설턴트입니다.
+당신은 데이터를 기반으로 소상공인의 가게 건강 상태를 진단하고 맞춤 처방을 내리는 '비즈니스 닥터'입니다.
 
 ## 응답 형식 규칙 ##
+1.  **가맹점명 검색 요청인 경우 (진료 요청)**: 반드시 아래의 JSON 형식으로 응답합니다.
+2.  **일반 질문인 경우 (간단한 문의)**: 일반 텍스트로 친근하게 답변합니다.
 
-1. **가맹점명 검색 요청인 경우**: JSON 형식으로 마케팅 전략의 세부 제안이 하나의 큰 섹션으로 제안됩니다.
-2. **일반 질문인 경우**: 일반 텍스트로 친근하게 답변
+## 역할 ##
+1.  **진단**: 가맹점의 데이터를 분석하여 현재 건강 상태(매출, 고객, 상권 등)를 정확히 진단합니다.
+2.  **처방**: 진단 결과를 바탕으로, 즉시 실행할 수 있는 구체적인 마케팅 전략(처방전)을 제안합니다.
+3.  **소통**: 어려운 데이터 용어 대신, 의사가 환자에게 설명하듯 쉽고 친절한 용어를 사용합니다.
 
 ### 가맹점명 검색 시 JSON 형식:
 사용자가 가맹점명을 입력하고 search_merchant 도구가 사용된 경우에만 JSON 형식으로 응답합니다.
@@ -39,8 +43,8 @@ JSON 구조:
     "basis": "검색된 가맹점의 지정된 컬럼과 값을 세로형 테이블로 표시합니다. 각 항목을 행으로 나누어 표시하여 가독성을 높입니다.\\n\\n**중요: 테이블에는 연령대별 성별 고객 비중 데이터(남성/여성 20대이하, 30대, 40대, 50대, 60대이상)를 포함하지 마세요. 이 데이터는 차트로만 시각화됩니다.**\\n\\n| 항목 | 값 |\\n|---|---|\\n| 가맹점명 | [값] |\\n| 주소 | [값] |\\n| 업종 | [값] |\\n| 상권 | [값] |\\n| 개설일 | [값] |\\n| 가맹점 운영개월수 구간 | [값] |\\n| 매출금액 구간 | [값] |\\n| 매출건수 구간 | [값] |\\n| 유니크 고객 수 구간 | [값] |\\n| 객단가 구간 | [값] |\\n| 취소율 구간 | [값] |\\n| 배달매출 비율 | [값] |\\n| 동일 업종 대비 매출금액 비율 | [값] |\\n| 동일 업종 대비 매출건수 비율 | [값] |\\n| 동일 업종 내 매출 순위 비율 | [값] |\\n| 동일 상권 내 매출 순위 비율 | [값] |\\n| 동일 업종 내 해지 가맹점 비중 | [값] |\\n| 동일 상권 내 해지 가맹점 비중 | [값] |\\n\\n거주 이용 고객 비율, 직장 이용 고객 비율, 유동인구 이용 고객 비율의 실제 수치를 제공합니다. 예: 거주 40.5%, 직장 11.7%, 유동인구 47.8%. 연령대별 성별 분포 데이터도 함께 포함하되, 이는 테이블에 표시하지 않고 차트 시각화용으로만 사용합니다."
   },
   {
-    "section": "1. [데이터 기반 전략명]",
-    "content": "가맹점의 상황에 따른 맞춤형 전략을 제안합니다. 적절한 마케팅 문구를 제시해도 됩니다.",
+    "section": "[데이터 기반 전략명 1]",
+    "content": "가맹점의 상황에 따른 맞춤형 처방 내용을 구체적으로 서술합니다.",
     "basis": "해당 전략을 뒷받침하는 데이터와 근거를 제시합니다."
   },
   {
@@ -59,7 +63,6 @@ JSON 구조:
     "basis": "관련 데이터와 시장 분석 결과를 근거로 제시합니다."
   }
 ]
-
 
 JSON 응답 규칙:
 1. 각 section은 "번호. 전략명" 형태로 작성하되, 가맹점 데이터에 따라 유연하게 전략명을 정합니다.
@@ -80,7 +83,7 @@ JSON 응답 규칙:
 - 질문: "마케팅이란 무엇인가요?"
 - 답변: "마케팅은 고객의 니즈를 파악하고 그에 맞는 상품이나 서비스를 제공하여 고객과의 관계를 만들어가는 활동입니다. 특히 소상공인에게는 한정된 예산으로 최대의 효과를 낼 수 있는 전략이 중요해요!"
 """
-greeting = """마케팅이 필요한 가맹점을 알려주세요 \n주소도 함께 입력해주시면, 가맹점의 정보를 특화하는데 도움이 됩니다."""
+greeting = """우리가게 주치의 닥터 신한입니다. 어떤 가게의 건강이 궁금하신가요? 진료받을 가맹점명을 말씀해주세요."""
 
 # Streamlit App UI
 @st.cache_data 
@@ -92,7 +95,7 @@ def create_pie_chart(residence_ratio: float, workplace_ratio: float, floating_ra
     # 데이터 준비
     labels = ['거주 이용 고객', '직장 이용 고객', '유동인구 이용 고객']
     values = [residence_ratio, workplace_ratio, floating_ratio]
-    colors = ['#ff9999', '#66b3ff', '#99ff99']
+    colors = ['#8cd2f5', '#4baff5', '#2878f5']
     
     # Plotly 파이 차트 생성
     fig = go.Figure(data=[go.Pie(
@@ -135,7 +138,7 @@ def create_population_pyramid(age_gender_data):
         x=male_values_negative,
         name='남성',
         orientation='h',
-        marker_color='#4472C4',
+        marker_color='#00236e',
         text=[f'{val}%' for val in male_values],
         textposition='inside',
         textfont=dict(color='white', size=10)
@@ -147,7 +150,7 @@ def create_population_pyramid(age_gender_data):
         x=female_values,
         name='여성',
         orientation='h',
-        marker_color='#E46C0A',
+        marker_color="#000000",
         text=[f'{val}%' for val in female_values],
         textposition='inside',
         textfont=dict(color='white', size=10)
@@ -190,7 +193,7 @@ def create_population_pyramid(age_gender_data):
     
     return fig
 
-st.set_page_config(page_title="2025년 빅콘테스트 AI데이터 활용분야 - SAVAGE")
+st.set_page_config(page_title="우리가게 주치의, Dr. 신한", layout="wide")
 
 def clear_chat_history():
     st.session_state.messages = [SystemMessage(content=system_prompt), AIMessage(content=greeting)]
@@ -198,19 +201,14 @@ def clear_chat_history():
 # 사이드바
 with st.sidebar:
     st.image(load_image("shc_ci_basic_00.png"), width='stretch')
-    st.markdown("<p style='text-align: center;'>2025 Big Contest</p>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>AI DATA 활용분야</p>", unsafe_allow_html=True)
-    st.write("")
-    col1, col2, col3 = st.columns([1,2,1])  # 비율 조정 가능
-    with col2:
-        st.button('Clear Chat History', on_click=clear_chat_history)
+    st.markdown("<h2 style='text-align: center;'>👨‍⚕️ Dr. 신한</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'>데이터를 기반으로 진단하고<br>마케팅 전략을 처방합니다.</p>", unsafe_allow_html=True)
+    st.divider()
+    st.button('새로운 진료 시작', on_click=clear_chat_history, use_container_width=True)
+    # st.info("이 서비스는 신한카드 빅데이터를 기반으로 한 AI 분석 결과이며, 실제와 다를 수 있습니다.")
 
-# 헤더 컨테이너
-header_container = st.container()
-with header_container:
-    st.title("신한카드 소상공인 🔑 비밀상담소")
-    st.subheader("#우리동네 #숨은맛집 #소상공인 #마케팅 #전략 .. 🤤")
-    st.write("")
+st.title("👨‍⚕️ 우리가게 주치의, Dr. 신한")
+st.subheader("가게의 건강 상태를 진단하여 맞춤 마케팅 전략을 처방해 드립니다.")
 
 # 메시지 상태 초기화
 if "messages" not in st.session_state:
@@ -276,7 +274,7 @@ def render_messages():
                                 content_text = item.get("content", "")
                                 basis = item.get("basis", "")
 
-                                st.subheader(f"✅ {section}")
+                                st.subheader(f"🩺 {section}")
                                 st.markdown(content_text)
                                 
                                 if basis:
@@ -430,19 +428,16 @@ async def process_user_input():
 
             return ai_message.content
             
-
-input_container = st.container()
-with input_container:
-    if query := st.chat_input("가맹점 이름을 입력하세요"):
-        # 사용자 메시지 추가
-        st.session_state.messages.append(HumanMessage(content=query))
-        st.rerun() # 페이지 새로고침하여 새로운 메시지를 표시
+if query := st.chat_input("가맹점 이름을 입력하여 진료를 시작하세요..."):
+    # 사용자 메시지 추가
+    st.session_state.messages.append(HumanMessage(content=query))
+    st.rerun() # 페이지 새로고침하여 새로운 메시지를 표시
 
 # 사용자 입력이 있을 때는 채팅 히스토리에 추가하여 UI 유지
 if len(st.session_state.messages) > 2:  
     last_message = st.session_state.messages[-1]
     if isinstance(last_message, HumanMessage):
-        with st.spinner("Thinking..."):
+        with st.spinner("닥터 신한 Thinking..."):
             try:
                 reply = asyncio.run(process_user_input())
                 st.session_state.messages.append(AIMessage(content=reply))
