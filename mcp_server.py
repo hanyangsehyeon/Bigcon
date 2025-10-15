@@ -213,5 +213,84 @@ def get_compare_industry(merchant_id: str) -> Dict[str, Any]:
         }
     }
 
+@mcp.tool()
+def my_street_risk(merchant_id: str) -> Dict[str, Any]:
+    """
+    가맹점 ID를 기반으로 해당 가맹점이 속한 상권의 위험도를 분석합니다.
+    상권 전체의 평균 위험도와 상권 내에서 해당 가맹점의 위험 수준을 비교 분석합니다.
+    반환되는 '위험지수백분위' 값은 수치가 낮을수록 위험도가 높음을 의미합니다. (예: 상위 10% = 안전, 하위 10% = 위험)
+
+    매개변수:
+      - merchant_id: 분석할 가맹점의 ID (예: "000F03E44A")
+
+    반환값:
+      - 상권 위험도 분석 결과가 담긴 딕셔너리
+    """
+    logger.info(f"[my_street_risk] 시작 - merchant_id={merchant_id!r}")
+    assert DF is not None, "DataFrame이 초기화되지 않았습니다."
+
+    # 1. 분석 대상 가맹점 정보 조회
+    target_merchant_df = DF[DF["가맹점ID"].astype(str) == merchant_id]
+    if len(target_merchant_df) == 0:
+        message = f"{merchant_id}에 해당하는 가맹점을 찾을 수 없습니다."
+        logger.warning(f"[my_street_risk] {message}")
+        return {"found": False, "message": message}
+
+    target_merchant = target_merchant_df.iloc[0].to_dict()
+    commercial_district = target_merchant.get("상권")
+    
+    if not commercial_district:
+        message = f"{merchant_id} 가맹점의 상권 정보가 없습니다."
+        logger.warning(f"[my_street_risk] {message}")
+        return {"found": False, "message": message}
+
+    logger.info(f"[my_street_risk] 대상 가맹점명='{target_merchant.get('가맹점명')}', 상권='{commercial_district}'")
+
+    # 2. 동일 상권에 속한 모든 가맹점(비교 집단) 조회
+    peers = DF[DF["상권"] == commercial_district]
+    peer_count = len(peers)
+    logger.info(f"[my_street_risk] '{commercial_district}' 상권 내 가맹점 수: {peer_count}")
+
+    if peer_count == 0:
+        message = f"'{commercial_district}' 상권에 대한 데이터가 없습니다."
+        logger.warning(f"[my_street_risk] {message}")
+        return {"found": False, "message": message}
+
+    # 3. 상권 위험도 분석
+    # 3-1. 상권의 평균 위험지수백분위 계산
+    try:
+        # '위험지수백분위' 컬럼을 숫자형으로 변환 (오류 발생 시 NaN으로 처리)
+        risk_percentiles = pd.to_numeric(peers['위험지수백분위'], errors='coerce')
+        # NaN 값을 제외하고 평균 계산
+        district_avg_risk_percentile = round(risk_percentiles.mean(), 2) if risk_percentiles.notna().any() else None
+        logger.info(f"[my_street_risk] '{commercial_district}' 상권 평균 위험지수백분위: {district_avg_risk_percentile}")
+    except Exception as e:
+        logger.error(f"[my_street_risk] 상권 평균 위험지수 계산 중 오류: {e}")
+        district_avg_risk_percentile = None
+
+    # 3-2. 상권 내 최종 등급 분포 계산
+    grade_distribution = peers['최종 등급'].value_counts().to_dict()
+    logger.info(f"[my_street_risk] '{commercial_district}' 상권 내 등급 분포: {grade_distribution}")
+
+    # 4. 최종 결과 조합
+    result = {
+        "found": True,
+        "merchant_id": merchant_id,
+        "commercial_district": commercial_district,
+        "district_analysis": {
+            "peer_count": peer_count,
+            "average_risk_percentile": district_avg_risk_percentile,
+            "grade_distribution": grade_distribution
+        },
+        "target_analysis": {
+            "risk_percentile": target_merchant.get('위험지수백분위'),
+            "final_grade": target_merchant.get('최종 등급')
+        },
+        "message": f"'{commercial_district}' 상권에 대한 위험도 분석이 완료되었습니다."
+    }
+    
+    logger.info(f"[my_street_risk] 완료 - merchant_id={merchant_id!r}")
+    return result
+
 if __name__ == "__main__":
     mcp.run()
