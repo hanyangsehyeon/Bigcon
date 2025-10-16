@@ -26,7 +26,7 @@
 git clone https://github.com/thjeong/shcard_2025_bigcontest
 cd shcard_2025_bigcontest
 
-# venv 환경 설정 (사전에 uv 설치가 필요합니다. 아래 항목 참조)
+# venv 환경 설정 (사전 uv 설치 필요)
 uv venv
 source .venv/bin/activate
 
@@ -34,7 +34,7 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 
 # streamlit 환경 변수 저장용 폴더 생성 + GOOGLE_API_KEY환경 변수 파일 생성
-# (Google API KEY)는 Google AI Studio에서 무료로 생성 가능 (아래 항목 참조)
+# (Google API KEY)는 생성 필요
 mkdir .streamlit
 echo 'GOOGLE_API_KEY="(Google API KEY)"' > .streamlit/secrets.toml
 
@@ -48,24 +48,18 @@ uv run streamlit run streamlit_app.py
 git clone https://github.com/thjeong/shcard_2025_bigcontest
 cd shcard_2025_bigcontest
 
-:: venv 환경 설정 (사전에 uv 설치가 필요합니다. 아래 항목 참조)
+:: venv 환경 설정 (사전 uv 설치 필요)
 uv venv
 call .venv\Scripts\activate.bat
 
 :: 필요한 python library 설치
 uv pip install -r requirements.txt
 
-:: streamlit 환경 변수 저장용 폴더 생성 + GOOGLE_API_KEY 환경 변수 파일 생성
-:: (Google API KEY)는 Google AI Studio에서 무료로 생성 가능 (아래 항목 참조)
+# streamlit 환경 변수 저장용 폴더 생성 + GOOGLE_API_KEY환경 변수 파일 생성
+# (Google API KEY)는 생성 필요
 mkdir .streamlit
 echo GOOGLE_API_KEY="(Google API KEY)" > .streamlit\secrets.toml
 
 :: 로컬에서 실행
 uv run streamlit run streamlit_app.py
 ```
-
-<br>
-
-## Google AI Studio API KEY 생성 방법
-
-https://aistudio.google.com/apikey 접속 후 (Google 로그인 필요) Get API KEY 메뉴에서 생성하면 됩니다.
