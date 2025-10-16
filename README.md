@@ -1,30 +1,24 @@
 # KAIT 주최 및 신한카드 주관 - 2025 빅콘테스트 AI데이터 활용분야
-### "내 가게를 살리는 AI 비밀상담사 - 가맹점별 찰떡 마케팅 전략을 찾아라" 예시 코드
+### "내 가게를 살리는 AI 비밀상담사 - 가맹점별 찰떡 마케팅 전략을 찾아라"
 
 <br>
 
-## 설명
-
-- 본 코드는 대회 참가자 분들의 과제에 대한 이해와 보다 수월한 접근을 돕기 위해 작성되었습니다.
-- 모범답안이 아니며 PoC(Proof of Concept) 수준의 샘플 코드입니다.
-- 크게 다음 두 부분으로 구성되어 있습니다.
-  1) LLM을 활용하여 데이터에 기반한 응답을 만드는 부분
-  2) Streamlit을 활용하여 웹페이지 UI를 만드는 부분
-- 대회 진행을 위해 본 코드를 자유롭게 사용하실 수 있으며, 본 코드의 사용 여부는 평가와 무관합니다.
+## 서비스 웹 페이지
+[https://bigconsavage.streamlit.app/](https://bigconsavage.streamlit.app/)
 
 <br>
 
-## 실행 결과 (서비스 웹 페이지)
-
-https://shcard2025bigcontest.streamlit.app/
-
-- 위 웹 페이지는 Streamlit Cloud를 이용해 배포되었습니다.
-- Streamlit Cloud를 활용하면 별도 서버없이 무료로 웹페이지 배포가 가능하며, 대회 진행을 위해 사용하셔도 좋습니다.
-- 참고 : https://streamlit.io/cloud
+## 👩‍💻👨‍💻 Team 세비지
+|김세희|김지원|이지윤|전세현|
+|:---:|:---:|:---:|:---:|
+|프롬프팅, UI|mcp툴|데이터분석|mcp툴, 데이터분석|
+|[sehee0207](https://github.com/sehee0207)|[jiwonniddaaa](https://github.com/jiwonniddaaa)|[jiyunni](https://github.com/jiyunni)|[hanyangsehyeon](https://github.com/hanyangsehyeon)|
+|![](https://avatars.githubusercontent.com/u/65457903?v=4)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|![](https://avatars.githubusercontent.com/u/120795436?v=4)|![](https://avatars.githubusercontent.com/u/146607256?v=4)|![](https://avatars.githubusercontent.com/u/218353569?v=4)|
 
 <br>
 
-## 로컬 개발 환경 구성 방법
+
+## 로컬 구동 환경 구성
 
 ```bash
 # On macOS and Linux.
@@ -69,12 +63,6 @@ echo GOOGLE_API_KEY="(Google API KEY)" > .streamlit\secrets.toml
 :: 로컬에서 실행
 uv run streamlit run streamlit_app.py
 ```
-
-<br>
-
-## uv 설치 방법
-
-https://docs.astral.sh/uv/getting-started/installation/ (공식 사이트. OS에 맞게 설치하면 됩니다.)
 
 <br>
 
