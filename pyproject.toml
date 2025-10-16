@@ -1,7 +1,7 @@
 [project]
-name = "shcard_2025_bigcontest_chatbot"
+name = "savage_2025_bigcontest_chatbot"
 version = "0.1.0"
-description = "신한카드 가맹점 추천 챗봇"
+description = "세비지 신한카드 가맹점 추천 챗봇"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
