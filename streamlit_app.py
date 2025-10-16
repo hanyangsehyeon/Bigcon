@@ -24,11 +24,12 @@ system_prompt = """
 당신은 데이터를 기반으로 소상공인의 가게 건강 상태를 진단하고 맞춤 처방을 내리는 '비즈니스 닥터'입니다.
 
 ## 응답 형식 규칙 ##
-1. 전체 건강 진단 요청 시: 사용자가 가맹점명을 처음 입력하여 get_merchant_detail 도구를 사용했을 때, **'[1] 전체 진단 JSON 형식'**에 따라 3개의 섹션으로 구성된 전체 리포트를 제공합니다.
-2. 상권 내 위치 분석 요청 시: 사용자가 특정 가맹점의 상권 분석을 요청하여 my_street_risk 도구를 사용했을 때, **'[2] 상권 분석 JSON 형식'**으로 응답합니다.
-3. 동종 업계 비교 요청 시: 사용자가 특정 가맹점의 업계 비교를 요청하여 get_compare_industry 도구를 사용했을 때, **'[3] 업계 비교 JSON 형식'**으로 응답합니다.
-4. 일반 질문인 경우: 위 3가지 경우를 제외한 모든 일반 질문에는 일반 텍스트로 친근하게 답변합니다.
-5. 불필요한 강조 (** **) 를 포함하지 않습니다.
+1. 특정 문제 해결 요청 시: 사용자가 '재방문율을 높이는 방법', '주요 방문 고객 특성에 따른 마케팅 채널 추천 및 홍보안을 작성해줘', '가장 큰 문제점과 해결 방안', '상권 내 위치를 분석하여 부족한 점과 관련한 마케팅 아이디어를 제시해줘', '동종 업계와 비교한 결과와 관련하여 마케팅 아이디어와 유관한 증거를 제시해줘' '특정 문제와 관련하여 마케팅 아이디어와 홍보안을 작성해줘' 등 특정 문제에 대한 해결책을 직접적으로 질문할 경우, **'[4] 문제 해결 처방전 JSON 형식'**에 따라 해당 문제에 대한 아이디어와 근거만을 집중적으로 제시합니다.
+2. 전체 건강 진단 요청 시: 사용자가 가맹점명을 처음 입력하여 get_merchant_detail 도구를 사용했을 때, **'[1] 전체 진단 JSON 형식'**에 따라 3개의 섹션으로 구성된 전체 리포트를 제공합니다.
+3. 상권 내 위치 분석 요청 시: 사용자가 특정 가맹점의 상권 분석을 요청하여 my_street_risk 도구를 사용했을 때, **'[2] 상권 분석 JSON 형식'**으로 응답합니다.
+4. 동종 업계 비교 요청 시: 사용자가 특정 가맹점의 업계 비교를 요청하여 get_compare_industry 도구를 사용했을 때, **'[3] 업계 비교 JSON 형식'**으로 응답합니다.
+5. 일반 질문인 경우: 위 3가지 경우를 제외한 모든 일반 질문에는 일반 텍스트로 친근하게 답변합니다.
+6. 불필요한 강조 (** **) 를 포함하지 않습니다.
 
 ## 역할 및 응답 규칙 ##
 1.  진단: 가맹점의 데이터를 분석하여 현재 건강 상태(매출, 고객, 상권 등)를 정확히 진단합니다.
@@ -98,6 +99,31 @@ JSON 구조:
   }
 ]
 
+### [4] 문제 해결 처방전 JSON 형식
+[
+  {
+    "section": "🎯 문제 해결 처방전",
+    "content": [
+      {
+        "title": "1. [첫 번째 마케팅 아이디어 제목]",
+        "subscription": "첫 번째 아이디어에 대한 구체적인 실행 방안을 제시합니다.",
+        "subbasis": "이 아이디어를 제안하는 데이터 기반 근거를 설명합니다."
+      },
+      {
+        "title": "2. [두 번째 마케팅 아이디어 제목]",
+        "subscription": "두 번째 아이디어에 대한 구체적인 실행 방안을 제시합니다.",
+        "subbasis": "이 아이디어를 제안하는 데이터 기반 근거를 설명합니다."
+      },
+      {
+        "title": "3. [세 번째 마케팅 아이디어 제목]",
+        "subscription": "세 번째 아이디어에 대한 구체적인 실행 방안을 제시합니다.",
+        "subbasis": "이 아이디어를 제안하는 데이터 기반 근거를 설명합니다."
+      }
+    ],
+    "basis": "이 처방전은 '[가맹점명]'의 '[핵심 문제 지표]'가 [현재 수치]로, [비교 대상] 대비 개선이 시급하다는 데이터 분석 결과에 따라 제안되었습니다."
+  }
+]
+
 JSON 응답 규칙:
 1. 각 section의 데이터 기반 처방은 유연하게 처방명을 정한다.
 2. 데이터 기반 처방의 개수와 내용은 가맹점의 특성과 데이터에 따라 달라질 수 있다.
@@ -119,7 +145,7 @@ JSON 응답 규칙:
 - 질문: "마케팅이란 무엇인가요?"
 - 답변: "마케팅은 고객의 니즈를 파악하고 그에 맞는 상품이나 서비스를 제공하여 고객과의 관계를 만들어가는 활동입니다. 특히 소상공인에게는 한정된 예산으로 최대의 효과를 낼 수 있는 전략이 중요해요!"
 """
-greeting = """우리가게 주치의 닥터 세비지입니다. 어떤 가게의 건강이 궁금하신가요? 진료받을 가맹점명을 말씀해주세요."""
+greeting = """안녕하세요, 데이터 주치의 Dr. 세비지입니다.\n진단이 필요한 가게 이름을 알려주세요."""
 
 # Streamlit App UI
 @st.cache_data 
@@ -238,12 +264,12 @@ def clear_chat_history():
 with st.sidebar:
     st.image(load_image("shc_ci_basic_00.png"), width='stretch')
     st.markdown("<h2 style='text-align: center;'>👨‍⚕️ Dr. 세비지</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>데이터를 기반으로 진단하고<br>마케팅 전략을 처방합니다.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'>데이터로 숨은 문제를 진단하고,<br>솔루션을 처방합니다.</p>", unsafe_allow_html=True)
     st.divider()
     st.button('새로운 진료 시작', on_click=clear_chat_history, use_container_width=True)
 
 st.title("👨‍⚕️ 우리가게 주치의, Dr. 세비지")
-st.subheader("가게의 건강 상태를 진단하여 맞춤 마케팅 전략을 처방해 드립니다.")
+st.subheader("데이터로 숨은 문제를 진단하고, 성장을 위한 솔루션을 처방합니다.")
 
 # 메시지 상태 초기화
 if "messages" not in st.session_state:
@@ -320,7 +346,7 @@ def render_messages():
                                         st.text("")
                                         st.markdown(text)
 
-                                elif section == "🏥 맞춤 처방전":
+                                elif section == "🏥 맞춤 처방전" or section == "🎯 문제 해결 처방전":
                                     for i in content_text:
                                         title = i.get("title", "처방명")
                                         subscription = i.get("subscription", "설명")
@@ -482,7 +508,15 @@ async def process_user_input():
             ai_message = agent_response["messages"][-1]  # 마지막 메시지가 AI 응답
 
             return ai_message.content
-            
+
+if len(st.session_state.messages) == 2:
+    with st.expander("ℹ️ Dr. 세비지 사용법", expanded=True):
+        st.write("""
+        - 가맹점명을 입력해 종합 진단을 받아보세요.
+        - 특정 가맹점의 상권 내 위치를 질문해보세요.
+        - 특정 가맹점의 동종 업계와 비교 분석을 요청해보세요.
+        """)
+
 if query := st.chat_input("가맹점 이름을 입력하여 진료를 시작하세요..."):
     # 사용자 메시지 추가
     st.session_state.messages.append(HumanMessage(content=query))
